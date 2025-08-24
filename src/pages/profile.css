@@ -1,0 +1,270 @@
+.profile-page {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #f9fafb, #eef2ff);
+  color: #333;
+  padding-bottom: 40px;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Banner Section */
+.profile-banner {
+  width: 100%;
+  height: 220px;
+  background-size: cover;
+  background-position: center;
+  border-radius: 0 0 20px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.banner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.2),
+    rgba(0, 0, 0, 0.5)
+  );
+  animation: gradientMove 6s ease-in-out infinite alternate;
+}
+
+
+/* Subtle moving gradient animation */
+@keyframes gradientMove {
+  from {
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.2),
+      rgba(0, 0, 0, 0.5)
+    );
+  }
+  to {
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.4),
+      rgba(0, 0, 0, 0.7)
+    );
+  }
+}
+
+.banner-upload-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.banner-upload-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.banner-upload-btn input[type="file"] {
+  display: none;
+}
+
+.banner-upload-btn i {
+  color: white;
+  font-size: 18px;
+}
+
+/* Profile Header */
+.profile-header {
+  text-align: center;
+  margin-top: -80px; /* Pull profile pic into banner */
+  margin-bottom: 40px;
+  position: relative;
+}
+
+/* Profile Picture */
+.profile-pic-container {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-pic {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.upload-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: linear-gradient(135deg, #73728f, #9333ea);
+  border: 3px solid white;
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  transition: 0.3s ease;
+}
+
+.upload-btn:hover {
+  background: linear-gradient(135deg, #bcb7ef, #ad92c4);
+  transform: scale(1.1);
+}
+
+.upload-btn i {
+  color: white;
+  font-size: 16px;
+}
+
+.upload-btn input[type="file"] {
+  display: none;
+}
+
+/* Username & Bio */
+.username {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-top: 15px;
+}
+
+.bio {
+  font-size: 1rem;
+  margin-top: 8px;
+  color: #555;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+/* Edit Button */
+.edit-btn {
+  background: #4f46e5;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  margin-top: 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.edit-btn:hover {
+  background: #3730a3;
+}
+
+/* Stats */
+.profile-stats {
+  display: flex;
+  justify-content: center;
+  gap: 50px;
+  margin: 30px 0;
+}
+
+.stat-box {
+  text-align: center;
+}
+
+.stat-box h3 {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #111;
+}
+
+.stat-box p {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* Social Links */
+.social-links {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  margin-bottom: 40px;
+}
+
+.social-links a {
+  font-size: 1.4rem;
+  color: #4f46e5;
+  transition: 0.3s;
+}
+
+.social-links a:hover {
+  color: #1e3a8a;
+}
+
+/* Blogs Section */
+.blogs-section {
+  margin-top: 20px;
+}
+
+.blogs-title {
+  font-size: 1.4rem;
+  margin-bottom: 25px;
+  text-align: center;
+  font-weight: bold;
+  color: #111;
+}
+
+.blogs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+}
+
+/* Blog Card */
+.blog-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: 0.3s ease;
+}
+
+.blog-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.blog-thumb {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.blog-content {
+  padding: 16px;
+}
+
+.blog-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.blog-desc {
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.blog-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #666;
+}
