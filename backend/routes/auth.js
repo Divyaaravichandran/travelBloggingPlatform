@@ -19,6 +19,9 @@ router.post("/signup", upload.single("profilePicture"), async (req, res) => {
   try {
     const { username, email, password, phone, country } = req.body;
 
+    console.log("Signup request received:", { username, email, phone, country });
+    console.log("File uploaded:", req.file);
+
     // check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: "Email already exists" });
@@ -35,10 +38,13 @@ router.post("/signup", upload.single("profilePicture"), async (req, res) => {
       profilePicture: req.file ? req.file.filename : null,
     });
 
+    console.log("New user being saved:", newUser);
+
     await newUser.save();
     res.json({ message: "User registered successfully", user: newUser  });
 
   } catch (err) {
+    console.error("Signup error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -69,8 +75,61 @@ router.post("/login", async (req, res) => {
 router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
+    console.log("User data being sent:", user);
     res.json(user);
   } catch (err) {
+    console.error("Error in /me route:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Test route to check uploads directory
+router.get("/test-uploads", (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const uploadsDir = path.join(__dirname, '../uploads');
+  
+  try {
+    const files = fs.readdirSync(uploadsDir);
+    res.json({ 
+      message: "Uploads directory accessible", 
+      files: files,
+      uploadsPath: uploadsDir 
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      message: "Error accessing uploads directory", 
+      error: err.message,
+      uploadsPath: uploadsDir 
+    });
+  }
+});
+
+// Update profile picture
+router.post("/update-profile-picture", authMiddleware, upload.single("profilePicture"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    console.log("Profile picture update request:", req.file);
+
+    // Update user's profile picture in database
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { profilePicture: req.file.filename },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    console.log("Profile picture updated for user:", user.username);
+    res.json({ message: "Profile picture updated successfully", user });
+
+  } catch (err) {
+    console.error("Error updating profile picture:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
