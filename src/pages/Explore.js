@@ -1,48 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
-const initialBlogPosts = [
+/* ------------------------------
+  fallback data (keeps your page working offline)
+-------------------------------*/
+const fallbackPosts = [
   {
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1200&q=80&auto=format&fit=crop",
     title: "Sunrise in Bali",
-    description: "Experience the magical sunrise over Bali's lush landscapes. Discover hidden gems and local traditions.",
+    description:
+      "Experience the magical sunrise over Bali's lush landscapes. Discover hidden gems and local traditions.",
     author: "Jane Doe",
     avatar: "https://randomuser.me/api/portraits/women/44.jpg",
     likes: 120,
     comments: 0,
-    details: "Bali is renowned for its stunning sunrises, lush rice terraces, and vibrant culture. In this blog, we explore the best spots to catch the sunrise, local traditions, and tips for travelers.",
+    details:
+      "Bali is renowned for its stunning sunrises, lush rice terraces, and vibrant culture. In this blog, we explore the best spots to catch the sunrise, local traditions, and tips for travelers.",
     location: "Bali, Indonesia",
     tips: "Arrive early for sunrise, bring a camera, respect local customs.",
     commentList: [],
     tags: ["Nature", "Asia", "Sunrise"],
+    createdAt: "2024-07-17",
   },
   {
-    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca",
+    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=1200&q=80&auto=format&fit=crop",
     title: "Alpine Adventures",
-    description: "Hiking the breathtaking Alps with local guides. Explore scenic trails and enjoy authentic mountain cuisine.",
+    description:
+      "Hiking the breathtaking Alps with local guides. Explore scenic trails and enjoy authentic mountain cuisine.",
     author: "John Smith",
     avatar: "https://randomuser.me/api/portraits/men/32.jpg",
     likes: 98,
     comments: 0,
-    details: "The Alps offer some of the most scenic hiking trails in the world. Join us as we trek through picturesque villages, sample mountain cuisine, and share tips for safe hiking.",
+    details:
+      "The Alps offer some of the most scenic hiking trails in the world. Join us as we trek through picturesque villages, sample mountain cuisine, and share tips for safe hiking.",
     location: "Swiss Alps",
     tips: "Pack layers, check weather, hire a local guide.",
     commentList: [],
     tags: ["Adventure", "Europe", "Mountains"],
+    createdAt: "2024-07-14",
   },
 ];
 
 const carouselDestinations = [
   {
-    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
+    image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1400&q=80&auto=format&fit=crop",
     name: "Maldives",
+    subtitle: "Beaches & nightlife",
   },
   {
-    image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308",
+    image: "https://images.unsplash.com/photo-1519125323398-675f0ddb6308?w=1400&q=80&auto=format&fit=crop",
     name: "Santorini",
+    subtitle: "Cliff views & sunsets",
   },
   {
-    image: "https://images.unsplash.com/photo-1465156799763-2c087c332922",
+    image: "https://images.unsplash.com/photo-1465156799763-2c087c332922?w=1400&q=80&auto=format&fit=crop",
     name: "Kyoto",
+    subtitle: "Temples & gardens",
   },
 ];
 
@@ -65,8 +77,12 @@ const topAuthors = [
   },
 ];
 
+/* ------------------------------
+  Component
+-------------------------------*/
 function Explore() {
-  const [blogPosts, setBlogPosts] = useState(initialBlogPosts);
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalBlog, setModalBlog] = useState(null);
   const [activeCommentIdx, setActiveCommentIdx] = useState(null);
@@ -75,19 +91,53 @@ function Explore() {
   const [shareMsgIdx, setShareMsgIdx] = useState(null);
   const [followedAuthors, setFollowedAuthors] = useState([]);
 
+  useEffect(() => {
+    const fetchPosts = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/posts");
+        const data = await response.json();
+        if (response.ok) {
+          const transformed = data.map((post) => ({
+            id: post._id,
+            image: post.image
+              ? `http://localhost:5000/uploads/posts/${post.image}`
+              : fallbackPosts[0].image,
+            title: post.title,
+            description: post.description,
+            author: post.username,
+            avatar: post.profilePicture
+              ? `http://localhost:5000/uploads/${post.profilePicture}`
+              : fallbackPosts[0].avatar,
+            likes: post.likes || 0,
+            comments: post.comments ? post.comments.length : 0,
+            details: post.description,
+            location: post.location || "Travel Destination",
+            tips: post.tips || "Explore and enjoy your journey!",
+            commentList: post.comments ? post.comments.map((c) => c.text) : [],
+            tags: post.tags || [],
+            createdAt: post.createdAt,
+          }));
+          setBlogPosts(transformed);
+        } else {
+          setBlogPosts(fallbackPosts);
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setBlogPosts(fallbackPosts);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPosts();
+  }, []);
+
   const handleLike = (idx) => {
     setBlogPosts((posts) =>
-      posts.map((post, i) =>
-        i === idx ? { ...post, likes: post.likes + 1, heartPop: true } : post
-      )
+      posts.map((p, i) => (i === idx ? { ...p, likes: p.likes + 1, heartPop: true } : p))
     );
     setTimeout(() => {
-      setBlogPosts((posts) =>
-        posts.map((post, i) =>
-          i === idx ? { ...post, heartPop: false } : post
-        )
-      );
-    }, 700);
+      setBlogPosts((posts) => posts.map((p, i) => (i === idx ? { ...p, heartPop: false } : p)));
+    }, 650);
   };
 
   const handleCommentToggle = (idx) => {
@@ -96,16 +146,10 @@ function Explore() {
   };
 
   const handleCommentSubmit = (idx) => {
-    if (commentInput.trim() === "") return;
+    if (!commentInput.trim()) return;
     setBlogPosts((posts) =>
-      posts.map((post, i) =>
-        i === idx
-          ? {
-              ...post,
-              comments: post.comments + 1,
-              commentList: [...post.commentList, commentInput],
-            }
-          : post
+      posts.map((p, i) =>
+        i === idx ? { ...p, comments: p.comments + 1, commentList: [...p.commentList, commentInput] } : p
       )
     );
     setCommentInput("");
@@ -115,346 +159,273 @@ function Explore() {
     setModalBlog(blog);
     setModalOpen(true);
   };
+
   const closeModal = () => {
     setModalOpen(false);
     setModalBlog(null);
   };
 
   const handleFavorite = (idx) => {
-    setFavorites((prev) =>
-      prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
-    );
+    setFavorites((prev) => (prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]));
   };
 
   const handleShare = (idx) => {
-    const url = window.location.origin + "/blog/" + idx;
-    navigator.clipboard.writeText(url);
+    const url = window.location.origin + "/blog/" + (blogPosts[idx]?.id || idx);
+    navigator.clipboard?.writeText(url);
     setShareMsgIdx(idx);
     setTimeout(() => setShareMsgIdx(null), 1200);
   };
 
   const handleFollow = (author) => {
-    setFollowedAuthors((prev) =>
-      prev.includes(author) ? prev.filter((a) => a !== author) : [...prev, author]
-    );
+    setFollowedAuthors((prev) => (prev.includes(author) ? prev.filter((a) => a !== author) : [...prev, author]));
   };
 
-  const recommendedBlogs = blogPosts.filter(post =>
-    post.tags.some(tag => userInterests.includes(tag))
-  );
+  const recommendedBlogs = blogPosts.filter((post) => post.tags && post.tags.some((t) => userInterests.includes(t)));
 
   return (
     <div style={styles.page}>
-      <style>{responsiveCSS}</style>
-      <style>{heartPopCSS}</style>
-      <style>{carouselAnim}</style>
+      <style>{globalCSS}</style>
 
+      {/* Header */}
+      <div style={styles.header}>
+        <div style={styles.headerText}>
+          <h1 style={styles.title}>Explore Blogs</h1>
+          <p style={styles.subtitle}>Discover travel stories, destinations & guides</p>
+        </div>
+      </div>
+
+      {/* Main layout */}
       <div style={styles.mainLayout}>
+        {/* Left: Blog feed */}
         <div style={styles.leftPane}>
-          <h2 style={styles.sectionTitle}>Explore Blogs</h2>
-          <div style={styles.blogList}>
-            {blogPosts.map((post, idx) => {
-              const isFavorite = favorites.includes(idx);
-              const isTrending = post.likes >= 100;
-              const isFollowed = followedAuthors.includes(post.author);
-              return (
-                <div key={idx} style={styles.blogCard}>
-                  <div style={{ display: "flex", flexDirection: "column", flex: "none", alignItems: "center", minWidth: "140px" }}>
-                    <img src={post.image} alt={post.title} style={styles.blogImg} />
-                    <div style={styles.authorBlock}>
-                      <img src={post.avatar} alt={post.author} style={styles.avatar} />
-                      <span style={styles.authorName}>{post.author}</span>
-                      <button
-                        style={{
-                          ...styles.followBtn,
-                          background: isFollowed ? "#0097a7" : "#e0f7fa",
-                          color: isFollowed ? "#fff" : "#0097a7",
-                          border: isFollowed ? "1px solid #0097a7" : "1px solid #e0f7fa",
-                          marginLeft: 0,
-                          marginTop: "6px",
-                          marginBottom: "6px",
-                        }}
-                        onClick={() => handleFollow(post.author)}
-                        aria-label="Follow"
-                      >
-                        {isFollowed ? "Following" : "Follow"}
-                      </button>
+          {loading ? (
+            <div style={styles.loadingContainer}>
+              <div style={styles.loadingSpinner}>🔄</div>
+              <div style={styles.loadingText}>Loading posts...</div>
+            </div>
+          ) : (
+            <div style={styles.blogList}>
+              {blogPosts.map((post, idx) => {
+                const isFavorite = favorites.includes(idx);
+                const isTrending = post.likes >= 100;
+                const isFollowed = followedAuthors.includes(post.author);
+
+                return (
+                  <article key={idx} style={styles.blogCard} className="blog-card">
+                    <div style={styles.cardLeft}>
+                      <img src={post.image} alt={post.title} style={styles.cardImage} />
                     </div>
-                  </div>
-                  <div style={styles.blogContent}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <h3 style={styles.blogTitle}>{post.title}</h3>
-                      {isTrending && (
-                        <span style={styles.trendingBadge}>
-                          🔥 Trending
+
+                    <div style={styles.cardRight}>
+                      <div style={styles.cardHeader}>
+                        <h2 style={styles.cardTitle}>{post.title}</h2>
+                        {isTrending && <span style={styles.trending}>🔥 Trending</span>}
+                      </div>
+
+                      <div style={styles.metaRow}>
+                        <span style={styles.metaDate}>
+                          {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ""}
                         </span>
-                      )}
-                    </div>
-                    <p style={styles.blogDesc}>{post.description}</p>
-                    <div style={styles.blogMeta}>
-                      <button
-                        style={styles.iconBtn}
-                        onClick={() => handleLike(idx)}
-                        aria-label="Like"
-                      >
-                        <span
-                          className={post.heartPop ? "heart-pop" : ""}
-                          style={{
-                            color: post.heartPop ? "#e53935" : "#888",
-                            fontSize: "18px",
-                            marginRight: "4px",
-                            transition: "color 0.2s",
-                          }}
-                        >
-                          ❤️
-                        </span>
-                        {post.likes}
-                      </button>
-                      <button
-                        style={styles.iconBtn}
-                        onClick={() => handleCommentToggle(idx)}
-                        aria-label="Comment"
-                      >
-                        <span style={{ fontSize: "18px", marginRight: "4px" }}>💬</span>
-                        {post.comments}
-                      </button>
-                      <button
-                        style={{
-                          ...styles.iconBtn,
-                          color: isFavorite ? "#ff9800" : "#888",
-                          background: isFavorite ? "#fff3e0" : "#e0f7fa",
-                          border: isFavorite ? "1px solid #ff9800" : "none",
-                        }}
-                        onClick={() => handleFavorite(idx)}
-                        aria-label="Bookmark"
-                        title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                      >
-                        <span style={{ fontSize: "18px", marginRight: "4px" }}>
-                          {isFavorite ? "★" : "☆"}
-                        </span>
-                      </button>
-                      <button
-                        style={styles.iconBtn}
-                        onClick={() => handleShare(idx)}
-                        aria-label="Share"
-                        title="Copy link"
-                      >
-                        <span style={{ fontSize: "18px", marginRight: "4px" }}>🔗</span>
-                      </button>
-                      {shareMsgIdx === idx && (
-                        <span style={styles.shareMsg}>Link copied!</span>
-                      )}
-                    </div>
-                    {activeCommentIdx === idx && (
-                      <div style={styles.commentSection}>
-                        <div style={styles.commentList}>
-                          {post.commentList.length === 0 && (
-                            <div style={{ color: "#aaa", fontSize: "14px" }}>No comments yet.</div>
-                          )}
-                          {post.commentList.map((c, i) => (
-                            <div key={i} style={styles.commentItem}>
-                              <span style={{ color: "#0097a7", fontWeight: 500 }}>User:</span> {c}
-                            </div>
-                          ))}
+                        <span style={styles.metaAuthor}> • {post.author}</span>
+                      </div>
+
+                      <p style={styles.cardDesc}>{post.description}</p>
+
+                      <div style={styles.cardFooter}>
+                        <div style={styles.authorRow}>
+                          <img src={post.avatar} alt={post.author} style={styles.authorAvatarSmall} />
+                          <div style={{ marginLeft: 10 }}>
+                            <div style={styles.authorName}>{post.author}</div>
+                          </div>
                         </div>
-                        <div style={styles.commentInputRow}>
-                          <input
-                            style={styles.commentInput}
-                            type="text"
-                            value={commentInput}
-                            placeholder="Add a comment..."
-                            onChange={(e) => setCommentInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleCommentSubmit(idx);
-                            }}
-                          />
-                          <button
-                            style={styles.commentSubmitBtn}
-                            onClick={() => handleCommentSubmit(idx)}
-                          >
-                            Post
+
+                        <div style={styles.actionsRow}>
+                          <button style={styles.iconBtn} onClick={() => handleLike(idx)} aria-label="Like">
+                            <span className={post.heartPop ? "heart-pop" : ""} style={{ marginRight: 8 }}>
+                              ❤️
+                            </span>
+                            <span>{post.likes}</span>
                           </button>
+
+                          <button style={styles.iconBtn} onClick={() => handleCommentToggle(idx)} aria-label="Comment">
+                            💬 <span style={{ marginLeft: 6 }}>{post.comments}</span>
+                          </button>
+
+                          <button
+                            style={{
+                              ...styles.iconBtn,
+                              background: isFavorite ? "#fff7ed" : "#eef9fb",
+                              color: isFavorite ? "#ff8a00" : "#556",
+                            }}
+                            onClick={() => handleFavorite(idx)}
+                            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                          >
+                            {isFavorite ? "★" : "☆"}
+                          </button>
+
+                          <button style={styles.iconBtn} onClick={() => handleShare(idx)} title="Copy link">
+                            🔗
+                          </button>
+
+                          {shareMsgIdx === idx && <span style={styles.copied}>Link copied</span>}
                         </div>
                       </div>
-                    )}
+
+                      {activeCommentIdx === idx && (
+                        <div style={styles.commentBox}>
+                          <div style={styles.commentList}>
+                            {post.commentList.length === 0 && <div style={{ color: "#8aa" }}>No comments yet.</div>}
+                            {post.commentList.map((c, i) => (
+                              <div key={i} style={styles.commentItem}>
+                                <strong style={{ color: "#0a7" }}>User:</strong> {c}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div style={styles.commentInputRow}>
+                            <input
+                              style={styles.commentInput}
+                              value={commentInput}
+                              onChange={(e) => setCommentInput(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && handleCommentSubmit(idx)}
+                              placeholder="Write a comment..."
+                            />
+                            <button style={styles.commentBtn} onClick={() => handleCommentSubmit(idx)}>
+                              Post
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      <div style={styles.readRow}>
+                        <button style={styles.readLink} onClick={() => openModal(post)}>
+                          Continue Reading →
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right: featured destinations */}
+        <aside style={styles.rightPane}>
+          <h3 style={styles.rightTitle}>Featured Destinations</h3>
+
+          <div style={styles.destList}>
+            {carouselDestinations.map((d, i) => (
+              <div key={i} style={styles.destCard} onClick={() => alert(`Open ${d.name} (hook in your router)`)} role="button">
+                <img src={d.image} alt={d.name} style={styles.destImg} />
+                <div style={styles.destOverlay}>
+                  <div style={styles.destName}>{d.name}</div>
+                  <div style={styles.destSub}>{d.subtitle}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 20 }}>
+            <h4 style={styles.smallTitle}>Top Authors</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {topAuthors.map((a, i) => {
+                const isFollowed = followedAuthors.includes(a.name);
+                return (
+                  <div key={i} style={styles.topAuthor}>
+                    <img src={a.avatar} alt={a.name} style={styles.topAuthorAvatar} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: "#0a6" }}>{a.name}</div>
+                      <div style={{ fontSize: 13, color: "#888" }}>{a.followers} followers</div>
+                    </div>
                     <button
-                      style={styles.readMoreBtn}
-                      onClick={() => openModal(post)}
+                      onClick={() => handleFollow(a.name)}
+                      style={{
+                        ...styles.followBtn,
+                        background: isFollowed ? "#0a98a7" : "#eef9fb",
+                        color: isFollowed ? "#fff" : "#0a98a7",
+                        border: isFollowed ? "1px solid #0a98a7" : "1px solid #e6f6f9",
+                      }}
                     >
-                      Read More
+                      {isFollowed ? "Following" : "Follow"}
                     </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={styles.rightPane}>
-          <h2 style={styles.sectionTitle}>Featured Destinations</h2>
-          <div style={styles.carouselWrapper}>
-            <div style={styles.carouselTrack}>
-              {[...carouselDestinations, ...carouselDestinations].map((dest, idx) => (
-                <div key={idx} style={styles.carouselItem}>
-                  <img src={dest.image} alt={dest.name} style={styles.carouselImg} />
-                  <div style={styles.carouselOverlay}>
-                    <span style={styles.carouselText}>{dest.name}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
-        </div>
+        </aside>
       </div>
 
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Recommended For You</h2>
-        <div style={styles.recommendedList}>
-          {recommendedBlogs.length === 0 && (
-            <div style={{ color: "#aaa", fontSize: "15px" }}>No recommendations yet.</div>
-          )}
-          {recommendedBlogs.map((post, idx) => {
-            const isFollowed = followedAuthors.includes(post.author);
-            return (
-              <div key={idx} style={styles.recommendedCard}>
-                <img src={post.image} alt={post.title} style={styles.recommendedImg} />
-                <div style={styles.recommendedContent}>
-                  <h4 style={styles.recommendedTitle}>{post.title}</h4>
-                  <span style={styles.recommendedAuthor}>{post.author}</span>
-                  <button
-                    style={{
-                      ...styles.followBtn,
-                      background: isFollowed ? "#0097a7" : "#e0f7fa",
-                      color: isFollowed ? "#fff" : "#0097a7",
-                      border: isFollowed ? "1px solid #0097a7" : "1px solid #e0f7fa",
-                      marginBottom: "6px",
-                    }}
-                    onClick={() => handleFollow(post.author)}
-                    aria-label="Follow"
-                  >
-                    {isFollowed ? "Following" : "Follow"}
-                  </button>
-                  <span style={styles.recommendedTags}>
-                    {post.tags.map(tag => (
-                      <span key={tag} style={styles.tagChip}>{tag}</span>
-                    ))}
-                  </span>
-                  <button style={styles.readMoreBtn} onClick={() => openModal(post)}>Read More</button>
+      {/* Recommended */}
+      <section style={styles.recommendedSection}>
+        <h3 style={styles.recommendedTitle}>Recommended For You</h3>
+        <div style={styles.recommendedGrid}>
+          {recommendedBlogs.length === 0 && <div style={{ color: "#98a" }}>No recommendations yet</div>}
+          {recommendedBlogs.map((p, i) => (
+            <div key={i} style={styles.recoCard}>
+              <img src={p.image} alt={p.title} style={styles.recoImg} />
+              <div style={{ padding: 12 }}>
+                <div style={{ fontWeight: 700, color: "#0a6" }}>{p.title}</div>
+                <div style={{ color: "#666", margin: "6px 0" }}>{p.author}</div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                  {p.tags.map((t) => (
+                    <div style={styles.tagChip} key={t}>
+                      {t}
+                    </div>
+                  ))}
                 </div>
+                <button style={styles.readBtnSmall} onClick={() => openModal(p)}>
+                  Read More
+                </button>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-      </div>
+      </section>
 
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Top Authors</h2>
-        <div style={styles.authorsList}>
-          {topAuthors.map((author, idx) => {
-            const isFollowed = followedAuthors.includes(author.name);
-            return (
-              <div key={idx} style={styles.authorCard}>
-                <img src={author.avatar} alt={author.name} style={styles.authorAvatar} />
-                <div style={styles.authorInfo}>
-                  <span style={styles.authorNameBig}>{author.name}</span>
-                  <span style={styles.authorFollowers}>{author.followers} followers</span>
-                  <span style={styles.authorBio}>{author.bio}</span>
-                  <span style={styles.authorFeatured}>
-                    <strong>Featured:</strong> {author.featured}
-                  </span>
-                  <button
-                    style={{
-                      ...styles.followBtn,
-                      background: isFollowed ? "#0097a7" : "#e0f7fa",
-                      color: isFollowed ? "#fff" : "#0097a7",
-                      border: isFollowed ? "1px solid #0097a7" : "1px solid #e0f7fa",
-                      marginTop: "8px",
-                    }}
-                    onClick={() => handleFollow(author.name)}
-                    aria-label="Follow"
-                  >
-                    {isFollowed ? "Following" : "Follow"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
+      {/* Modal */}
       {modalOpen && modalBlog && (
-        <div
-          style={{
-            ...styles.modalOverlay,
-            alignItems: "flex-start",
-            justifyContent: "center",
-            paddingTop: "80px",
-            paddingBottom: "80px",
-            overflowY: "auto",
-            minHeight: "100vh",
-            boxSizing: "border-box",
-          }}
-          onClick={closeModal}
-        >
-          <div
-            style={{
-              ...styles.modalContent,
-              maxHeight: "calc(100vh - 160px)",
-              overflowY: "auto",
-              margin: "0 auto",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-              borderRadius: "24px",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <img
-              src={modalBlog.image}
-              alt={modalBlog.title}
-              style={{
-                width: "100%",
-                maxHeight: "220px",
-                objectFit: "cover",
-                borderRadius: "24px",
-                marginBottom: "18px",
-                marginTop: "18px",
-                display: "block",
-              }}
-            />
+        <div style={styles.modalOverlay} onClick={closeModal} role="dialog" aria-modal="true">
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <img src={modalBlog.image} alt={modalBlog.title} style={styles.modalImage} />
             <h2 style={styles.modalTitle}>{modalBlog.title}</h2>
-            <div style={styles.modalAuthor}>
-              <img src={modalBlog.avatar} alt={modalBlog.author} style={styles.avatar} />
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <span style={styles.authorName}>{modalBlog.author}</span>
+            <div style={styles.modalMeta}>
+              <img src={modalBlog.avatar} alt={modalBlog.author} style={styles.authorAvatarSmall} />
+              <div style={{ marginLeft: 10, textAlign: "left" }}>
+                <div style={{ fontWeight: 700 }}>{modalBlog.author}</div>
+                <div style={{ color: "#888", fontSize: 13 }}>{modalBlog.createdAt ? new Date(modalBlog.createdAt).toLocaleDateString() : ""}</div>
+              </div>
+              <div style={{ marginLeft: "auto" }}>
                 <button
                   style={{
                     ...styles.followBtn,
-                    marginTop: "6px",
-                    marginLeft: 0,
+                    background: followedAuthors.includes(modalBlog.author) ? "#0a98a7" : "#eef9fb",
+                    color: followedAuthors.includes(modalBlog.author) ? "#fff" : "#0a98a7",
                   }}
                   onClick={() => handleFollow(modalBlog.author)}
-                  aria-label="Follow"
                 >
                   {followedAuthors.includes(modalBlog.author) ? "Following" : "Follow"}
                 </button>
               </div>
             </div>
+
             <p style={styles.modalDesc}>{modalBlog.details}</p>
-            <div style={styles.modalDetails}>
-              <div><strong>Location:</strong> {modalBlog.location}</div>
-              <div><strong>Travel Tips:</strong> {modalBlog.tips}</div>
+
+            <div style={styles.modalExtras}>
+              <div>
+                <strong>Location:</strong> {modalBlog.location}
+              </div>
+              <div>
+                <strong>Travel Tips:</strong> {modalBlog.tips}
+              </div>
             </div>
-            <button style={styles.closeBtn} onClick={closeModal}>Close</button>
-            <style>
-              {`
-                div[style*="overflowY: auto"]::-webkit-scrollbar {
-                  display: none;
-                }
-              `}
-            </style>
+
+            <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+              <button style={styles.closeBtn} onClick={closeModal}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -462,470 +433,414 @@ function Explore() {
   );
 }
 
-const carouselAnim = `
-@keyframes verticalScroll {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-50%); }
-}
-`;
-
-const heartPopCSS = `
-.heart-pop {
-  animation: heartPop 0.7s cubic-bezier(.17,.67,.83,.67);
-}
+/* ------------------------------
+  Styles (JS object + small global css)
+-------------------------------*/
+const globalCSS = `
 @keyframes heartPop {
-  0% { transform: scale(1); color: #e53935; }
-  30% { transform: scale(1.5); color: #e53935; }
-  60% { transform: scale(1.2); color: #e53935; }
-  100% { transform: scale(1); color: #e53935; }
+  0% { transform: scale(1); }
+  30% { transform: scale(1.45); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
 }
-`;
-
-const responsiveCSS = `
+.heart-pop { animation: heartPop 0.65s cubic-bezier(.17,.67,.83,.67); color: #e53935; }
 @media (max-width: 900px) {
-  .main-layout { flex-direction: column; }
-  .left-pane, .right-pane { max-width: 100% !important; min-width: 0 !important; }
-  .carousel-wrapper { height: 260px !important; }
-}
-@media (max-width: 600px) {
-  .blog-card { flex-direction: column !important; min-height: 0 !important; }
-  .blog-img { width: 100% !important; height: 160px !important; }
-  .blog-content { padding: 12px !important; }
-  .carousel-item { height: 120px !important; margin: 8px 0 !important; }
-  .carousel-wrapper { height: 180px !important; }
-  .section-title { font-size: 1.2rem !important; }
+  .blog-card { flex-direction: column !important; }
 }
 `;
 
 const styles = {
   page: {
-    fontFamily: "'Montserrat', 'Segoe UI', sans-serif",
-    background: "linear-gradient(135deg, #f8fafc 0%, #e0f7fa 100%)",
+    fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial",
+    background: "linear-gradient(180deg,#f7fbfc 0%, #ecfbff 100%)",
     minHeight: "100vh",
-    padding: "24px",
+    padding: 28,
     boxSizing: "border-box",
-    position: "relative",
+    color: "#08384a",
   },
-  section: {
-    marginBottom: "32px",
-    marginTop: "32px",
+  header: {
+    marginBottom: 18,
   },
-  sectionTitle: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    marginBottom: "18px",
-    color: "#0097a7",
-    letterSpacing: "1px",
-    className: "section-title",
+  headerText: {
+    maxWidth: 1100,
   },
-  recommendedList: {
-    display: "flex",
-    gap: "24px",
-    flexWrap: "wrap",
+  title: {
+    fontSize: 44,
+    margin: 0,
+    color: "#0b6270",
+    letterSpacing: 0.6,
   },
-  recommendedCard: {
-    background: "#fff",
-    borderRadius: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    overflow: "hidden",
-    display: "flex",
-    minWidth: "260px",
-    maxWidth: "320px",
-  },
-  recommendedImg: {
-    width: "100px",
-    height: "100px",
-    objectFit: "cover",
-    borderRadius: "16px 0 0 16px",
-  },
-  recommendedContent: {
-    padding: "14px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    flex: 1,
-  },
-  recommendedTitle: {
-    fontWeight: 600,
-    fontSize: "16px",
-    color: "#0097a7",
-    marginBottom: "4px",
-  },
-  recommendedAuthor: {
-    fontSize: "14px",
-    color: "#555",
-    marginBottom: "4px",
-  },
-  recommendedTags: {
-    marginBottom: "8px",
-  },
-  tagChip: {
-    background: "#e0f7fa",
-    color: "#0097a7",
-    borderRadius: "8px",
-    padding: "2px 8px",
-    fontSize: "13px",
-    marginRight: "4px",
-    fontWeight: 500,
-    display: "inline-block",
-  },
-  followBtn: {
-    borderRadius: "12px",
-    padding: "4px 16px",
-    fontWeight: 600,
-    fontSize: "14px",
-    cursor: "pointer",
-    border: "1px solid #e0f7fa",
-    marginLeft: "6px",
-    transition: "background 0.2s, color 0.2s, border 0.2s",
-  },
-  authorBlock: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "4px",
-    padding: "10px 0 0 0",
+  subtitle: {
+    marginTop: 8,
+    marginBottom: 18,
+    color: "#2b575e",
+    fontSize: 16,
+    opacity: 0.9,
   },
   mainLayout: {
     display: "flex",
-    gap: "32px",
-    marginBottom: "40px",
-    flexWrap: "wrap",
-    className: "main-layout",
+    gap: 28,
+    alignItems: "flex-start",
+    maxWidth: 1200,
   },
   leftPane: {
     flex: 2,
-    minWidth: "320px",
-    maxWidth: "900px",
-    overflowY: "auto",
-    paddingRight: "8px",
-    className: "left-pane",
+    minWidth: 480,
   },
   rightPane: {
     flex: 1,
-    minWidth: "260px",
-    maxWidth: "400px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    className: "right-pane",
+    minWidth: 300,
   },
+
+  /* Loading */
+  loadingContainer: {
+    background: "#fff",
+    padding: 28,
+    borderRadius: 18,
+    boxShadow: "0 4px 20px rgba(10,50,60,0.06)",
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingSpinner: {
+    fontSize: 26,
+  },
+  loadingText: {
+    color: "#0a7",
+    fontWeight: 600,
+  },
+
+  /* Blog list */
   blogList: {
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
-    maxHeight: "600px",
-    overflowY: "auto",
+    gap: 20,
   },
   blogCard: {
     display: "flex",
-    background: "#fff",
-    borderRadius: "18px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
-    overflow: "hidden",
-    transition: "transform 0.2s",
-    minHeight: "170px",
-    className: "blog-card",
+    gap: 20,
+    background: "#ffffff",
+    borderRadius: 18,
+    padding: 18,
+    boxShadow: "0 6px 24px rgba(15,50,60,0.06)",
+    alignItems: "flex-start",
   },
-  blogImg: {
-    width: "140px",
-    height: "100%",
+  cardLeft: {
+    width: 140,
+    flexShrink: 0,
+  },
+  cardImage: {
+    width: "100%",
+    height: 120,
+    borderRadius: 12,
     objectFit: "cover",
-    className: "blog-img",
+    display: "block",
   },
-  blogContent: {
+  cardRight: {
     flex: 1,
-    padding: "18px",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "space-between",
-    className: "blog-content",
+    gap: 10,
   },
-  blogTitle: {
-    fontSize: "1.2rem",
-    fontWeight: 600,
-    margin: "0 0 8px 0",
-    color: "#0097a7",
-  },
-  trendingBadge: {
-    background: "linear-gradient(90deg, #ff9800 0%, #ff5722 100%)",
-    color: "#fff",
-    borderRadius: "12px",
-    padding: "2px 10px",
-    fontWeight: 600,
-    fontSize: "13px",
-    marginLeft: "6px",
-    boxShadow: "0 1px 4px rgba(255,152,0,0.12)",
-    letterSpacing: "1px",
-    display: "inline-block",
-  },
-  blogDesc: {
-    fontSize: "15px",
-    color: "#555",
-    margin: "0 0 12px 0",
-    lineHeight: "1.4",
-    maxHeight: "3.2em",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-  blogMeta: {
+  cardHeader: {
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    marginBottom: "10px",
-    flexWrap: "wrap",
+    gap: 12,
   },
-  avatar: {
-    width: "32px",
-    height: "32px",
+  cardTitle: {
+    fontSize: 22,
+    margin: 0,
+    color: "#0b6270",
+    fontWeight: 700,
+  },
+  trending: {
+    background: "linear-gradient(90deg,#ff8a00,#ff4d4d)",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 700,
+    marginLeft: 6,
+  },
+  metaRow: {
+    color: "#698",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  metaDate: {},
+  metaAuthor: {},
+
+  cardDesc: {
+    margin: 0,
+    color: "#455",
+    lineHeight: 1.5,
+    maxWidth: "100%",
+  },
+
+  cardFooter: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+  },
+
+  authorRow: {
+    display: "flex",
+    alignItems: "center",
+  },
+  authorAvatarSmall: {
+    width: 44,
+    height: 44,
     borderRadius: "50%",
     objectFit: "cover",
-    border: "2px solid #e0f7fa",
+    border: "2px solid #ecfbff",
   },
   authorName: {
-    fontWeight: 500,
-    color: "#0097a7",
-    fontSize: "15px",
+    color: "#0b6270",
+    fontWeight: 700,
   },
-  iconBtn: {
-    fontSize: "14px",
-    color: "#888",
-    background: "#e0f7fa",
-    borderRadius: "12px",
-    padding: "2px 8px",
-    border: "none",
-    cursor: "pointer",
-    marginLeft: "4px",
-    transition: "background 0.2s",
+
+  actionsRow: {
     display: "flex",
     alignItems: "center",
-    gap: "2px",
+    gap: 10,
   },
-  shareMsg: {
-    fontSize: "13px",
-    color: "#0097a7",
-    background: "#e0f7fa",
-    borderRadius: "8px",
-    padding: "2px 8px",
-    marginLeft: "6px",
-    fontWeight: 500,
-    animation: "fadeIn 0.3s",
-  },
-  readMoreBtn: {
-    alignSelf: "flex-start",
-    background: "linear-gradient(90deg, #00bcd4 0%, #0097a7 100%)",
-    color: "#fff",
+  iconBtn: {
+    background: "#eef9fb",
     border: "none",
-    borderRadius: "16px",
-    padding: "8px 20px",
-    fontWeight: 600,
-    fontSize: "15px",
+    padding: "8px 10px",
+    borderRadius: 10,
     cursor: "pointer",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-    transition: "background 0.2s",
-    marginTop: "8px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 14,
+    color: "#234",
   },
-  commentSection: {
-    background: "#f1f8fb",
-    borderRadius: "12px",
-    padding: "12px",
-    margin: "8px 0",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+  copied: {
+    background: "#e8f7f8",
+    padding: "6px 10px",
+    borderRadius: 10,
+    color: "#0a7",
+    fontSize: 13,
+  },
+
+  commentBox: {
+    marginTop: 12,
+    background: "#f2fbfc",
+    padding: 12,
+    borderRadius: 10,
   },
   commentList: {
-    maxHeight: "80px",
+    maxHeight: 90,
     overflowY: "auto",
-    marginBottom: "8px",
+    marginBottom: 8,
   },
   commentItem: {
-    fontSize: "14px",
-    marginBottom: "4px",
-    color: "#444",
+    marginBottom: 6,
+    color: "#254",
+    fontSize: 14,
   },
   commentInputRow: {
     display: "flex",
-    gap: "8px",
+    gap: 8,
   },
   commentInput: {
     flex: 1,
-    padding: "6px 10px",
-    borderRadius: "8px",
-    border: "1px solid #b2ebf2",
-    fontSize: "14px",
-    outline: "none",
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid #dff5f7",
   },
-  commentSubmitBtn: {
-    background: "#0097a7",
-    color: "#fff",
+  commentBtn: {
+    padding: "8px 12px",
+    borderRadius: 8,
     border: "none",
-    borderRadius: "8px",
-    padding: "6px 14px",
-    fontWeight: 500,
-    fontSize: "14px",
+    background: "#0a98a7",
+    color: "#fff",
     cursor: "pointer",
   },
-  carouselWrapper: {
-    height: "400px",
-    width: "100%",
-    overflow: "hidden",
-    borderRadius: "18px",
-    boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
-    background: "linear-gradient(180deg, #e0f7fa 0%, #fff 100%)",
-    position: "relative",
-    className: "carousel-wrapper",
+
+  readRow: {
+    display: "flex",
+    justifyContent: "flex-end",
   },
-  carouselTrack: {
+  readLink: {
+    background: "transparent",
+    border: "none",
+    color: "#0b6270",
+    fontWeight: 700,
+    cursor: "pointer",
+    fontSize: 15,
+  },
+
+  /* Right pane: destinations */
+  rightTitle: {
+    color: "#0b6270",
+    fontSize: 20,
+    margin: "0 0 16px 0",
+    fontWeight: 700,
+  },
+  destList: {
     display: "flex",
     flexDirection: "column",
-    animation: "verticalScroll 12s linear infinite",
-    height: "800px",
+    gap: 16,
   },
-  carouselItem: {
+  destCard: {
     position: "relative",
-    height: "160px",
-    margin: "12px 18px",
-    borderRadius: "16px",
+    borderRadius: 14,
     overflow: "hidden",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-    transition: "transform 0.3s",
-    className: "carousel-item",
+    boxShadow: "0 6px 20px rgba(10,50,60,0.06)",
+    cursor: "pointer",
+    minHeight: 110,
   },
-  carouselImg: {
+  destImg: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
     display: "block",
+    filter: "brightness(0.9)",
   },
-  carouselOverlay: {
+  destOverlay: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    background: "rgba(0,0,0,0.35)",
+    bottom: 12,
+    left: 16,
     color: "#fff",
-    padding: "12px",
-    textAlign: "center",
+    textShadow: "0 6px 18px rgba(0,0,0,0.4)",
   },
-  carouselText: {
-    fontSize: "1.2rem",
-    fontWeight: 600,
-    letterSpacing: "1px",
+  destName: {
+    fontSize: 20,
+    fontWeight: 800,
   },
-  authorsList: {
+  destSub: {
+    fontSize: 13,
+    marginTop: 4,
+  },
+
+  /* recommended */
+  recommendedSection: {
+    marginTop: 28,
+    maxWidth: 1200,
+  },
+  recommendedTitle: {
+    color: "#0b6270",
+    fontSize: 20,
+    marginBottom: 12,
+  },
+  recommendedGrid: {
     display: "flex",
-    gap: "24px",
+    gap: 14,
     flexWrap: "wrap",
-    marginTop: "16px",
   },
-  authorCard: {
+  recoCard: {
+    display: "flex",
     background: "#fff",
-    borderRadius: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    borderRadius: 12,
+    boxShadow: "0 6px 18px rgba(10,50,60,0.05)",
+    minWidth: 240,
+    maxWidth: 300,
     overflow: "hidden",
-    display: "flex",
-    minWidth: "260px",
-    maxWidth: "320px",
-    padding: "16px",
-    alignItems: "center",
   },
-  authorAvatar: {
-    width: "60px",
-    height: "60px",
-    borderRadius: "50%",
+  recoImg: {
+    width: 100,
+    height: 100,
     objectFit: "cover",
-    marginRight: "16px",
-    border: "2px solid #e0f7fa",
+    borderRadius: 12,
   },
-  authorInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "4px",
+  tagChip: {
+    background: "#eef9fb",
+    color: "#0a98a7",
+    borderRadius: 8,
+    padding: "4px 8px",
+    fontSize: 12,
   },
-  authorNameBig: {
-    fontWeight: 700,
-    fontSize: "17px",
-    color: "#0097a7",
-  },
-  authorFollowers: {
-    fontSize: "14px",
-    color: "#888",
-  },
-  authorBio: {
-    fontSize: "14px",
-    color: "#555",
-  },
-  authorFeatured: {
-    fontSize: "14px",
-    color: "#0097a7",
-    marginTop: "4px",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    background: "rgba(0,0,0,0.4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-  },
-  modalContent: {
-    background: "#fff",
-    borderRadius: "24px",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-    padding: "32px",
-    maxWidth: "420px",
-    width: "90vw",
-    textAlign: "center",
-    position: "relative",
-    animation: "fadeIn 0.3s",
-  },
-  modalImg: {
-    width: "100%",
-    maxHeight: "220px",
-    objectFit: "cover",
-    borderRadius: "24px",
-    marginBottom: "18px",
-    marginTop: "18px",
-    display: "block",
-  },
-  modalTitle: {
-    fontSize: "1.6rem",
-    fontWeight: 700,
-    color: "#0097a7",
-    marginBottom: "8px",
-  },
-  modalAuthor: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "10px",
-    marginBottom: "12px",
-  },
-  modalDesc: {
-    fontSize: "16px",
-    color: "#555",
-    marginBottom: "18px",
-    lineHeight: "1.5",
-  },
-  modalDetails: {
-    fontSize: "15px",
-    color: "#444",
-    marginBottom: "18px",
-    textAlign: "left",
-  },
-  closeBtn: {
-    background: "#0097a7",
+  readBtnSmall: {
+    background: "#0a98a7",
     color: "#fff",
     border: "none",
-    borderRadius: "12px",
-    padding: "8px 24px",
-    fontWeight: 600,
-    fontSize: "15px",
+    padding: "8px 10px",
+    borderRadius: 8,
     cursor: "pointer",
-    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+  },
+
+  /* top authors small */
+  topAuthor: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: 8,
+    background: "#fff",
+    borderRadius: 10,
+    boxShadow: "0 4px 14px rgba(10,50,60,0.04)",
+  },
+  topAuthorAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: "50%",
+    objectFit: "cover",
+  },
+
+  followBtn: {
+    borderRadius: 12,
+    padding: "6px 12px",
+    border: "1px solid #e6f6f9",
+    cursor: "pointer",
+    fontWeight: 700,
+  },
+
+  /* modal */
+  modalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 2000,
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 720,
+    background: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    boxShadow: "0 10px 40px rgba(5,25,30,0.4)",
+  },
+  modalImage: {
+    width: "100%",
+    height: 260,
+    objectFit: "cover",
+    borderRadius: 12,
+  },
+  modalTitle: {
+    marginTop: 12,
+    color: "#0b6270",
+    fontSize: 24,
+  },
+  modalMeta: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 10,
+  },
+  modalDesc: {
+    marginTop: 12,
+    color: "#334",
+    lineHeight: 1.6,
+  },
+  modalExtras: {
+    marginTop: 12,
+    display: "grid",
+    gap: 8,
+  },
+  closeBtn: {
+    padding: "10px 18px",
+    background: "#0a98a7",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 700,
   },
 };
 
