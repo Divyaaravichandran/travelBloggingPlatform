@@ -5,6 +5,7 @@ import Explore from "./pages/Explore";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Profile from "./pages/Profile";
+import EditProfile from "./pages/EditProfile";
 import BlogDetail from "./pages/BlogDetail";
 import Post from "./pages/Post";
 
@@ -18,6 +19,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/edit" element={<EditProfile />} />
         <Route path="/blog/:id" element={<BlogDetail />} />
         <Route path="/post" element={<Post />} />
       </Routes>

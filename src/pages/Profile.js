@@ -6,6 +6,19 @@ function Profile() {
   const [bannerPic, setBannerPic] = useState(
     "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1600"
   );
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    username: '',
+    email: '',
+    phone: '',
+    country: ''
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Debug: track modal state changes
+  useEffect(() => {
+    console.log("isEditModalOpen:", isEditModalOpen);
+  }, [isEditModalOpen]);
 
   // Fetch logged-in user info
   useEffect(() => {
@@ -80,11 +93,85 @@ function Profile() {
           setUser(userData);
         }
       } else {
+        if (response.status === 401) {
+          alert("Session expired. Please login again.");
+          window.location.href = "/login";
+          return;
+        }
         alert(data.message || "Failed to update profile picture");
       }
     } catch (err) {
       console.error("Error updating profile picture:", err);
-      alert("Error updating profile picture");
+      alert(err.message || "Error updating profile picture");
+    }
+  };
+
+  // Handle edit profile modal
+  const openEditModal = () => {
+    console.log("Edit Profile clicked");
+    alert("Opening Edit Profile");
+    if (user) {
+      setEditForm({
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        country: user.country || ''
+      });
+    }
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditForm({
+      username: '',
+      email: '',
+      phone: '',
+      country: ''
+    });
+  };
+
+  const handleEditFormChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleEditFormSubmit = async (e) => {
+    e.preventDefault();
+    setIsUpdating(true);
+
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login first");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/update-profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(editForm),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        alert("Profile updated successfully!");
+        setUser(data.user);
+        closeEditModal();
+      } else {
+        alert(data.message || "Failed to update profile");
+      }
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      alert("Error updating profile");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -245,7 +332,14 @@ function Profile() {
         <div className="profile-info">
           <h2 className="username">{user?.username || "Username"}</h2>
           <p className="bio">🌍 Traveler | 📸 Photographer | ✈️ Adventure Seeker</p>
-          <button className="edit-btn">Edit Profile</button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
+            <button className="edit-btn" type="button" onClick={() => (window.location.href = "/profile/edit")}>Edit Profile</button>
+            {localStorage.getItem('token') ? (
+              <button className="edit-btn" type="button" onClick={() => { localStorage.removeItem('token'); window.location.href = '/login'; }}>Logout</button>
+            ) : (
+              <button className="edit-btn" type="button" onClick={() => (window.location.href = '/login')}>Login</button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -256,11 +350,11 @@ function Profile() {
           <p>Blogs</p>
         </div>
         <div className="stat-box">
-          <h3>250</h3>
+          <h3>{user?.followers ? user.followers.length : 0}</h3>
           <p>Followers</p>
         </div>
         <div className="stat-box">
-          <h3>180</h3>
+          <h3>{user?.following ? user.following.length : 0}</h3>
           <p>Following</p>
         </div>
       </div>
@@ -310,6 +404,72 @@ function Profile() {
           </div>
         )}
       </div>
+
+      {/* Edit Profile Modal */}
+      {isEditModalOpen && (
+        <div className="modal-overlay" onClick={closeEditModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Edit Profile</h2>
+              <button className="close-btn" onClick={closeEditModal}>×</button>
+            </div>
+            <form onSubmit={handleEditFormSubmit} className="edit-form">
+              <div className="form-group">
+                <label htmlFor="username">Username</label>
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={editForm.username}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={editForm.email}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="phone">Phone</label>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="country">Country</label>
+                <input
+                  type="text"
+                  id="country"
+                  name="country"
+                  value={editForm.country}
+                  onChange={handleEditFormChange}
+                  required
+                />
+              </div>
+              <div className="form-actions">
+                <button type="button" onClick={closeEditModal} className="cancel-btn">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isUpdating} className="save-btn">
+                  {isUpdating ? 'Updating...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

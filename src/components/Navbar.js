@@ -11,6 +11,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
+import ListItemButton from '@mui/material/ListItemButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
@@ -118,21 +119,21 @@ function Navbar() {
 
   <List>
     {navItems.map((item) => (
-      <ListItem
-        key={item.label}
-        button
-        component={Link}
-        to={item.path}
-        onClick={toggleDrawer(false)}
-        sx={{
-          color: '#f1f5f9',
-          borderRadius: 1,
-          '&:hover': {
-            backgroundColor: '#334155',
-          },
-        }}
-      >
-        <ListItemText primary={item.label} />
+      <ListItem key={item.label} disablePadding>
+        <ListItemButton
+          component={Link}
+          to={item.path}
+          onClick={toggleDrawer(false)}
+          sx={{
+            color: '#f1f5f9',
+            borderRadius: 1,
+            '&:hover': {
+              backgroundColor: '#334155',
+            },
+          }}
+        >
+          <ListItemText primary={item.label} />
+        </ListItemButton>
       </ListItem>
     ))}
   </List>

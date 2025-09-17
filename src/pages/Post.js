@@ -1,40 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Save, Send, Image as ImageIcon, Tag } from "lucide-react";
+import { Send, Tag } from "lucide-react";
 import "./Post.css"; // import our plain CSS
 
 export default function Post() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [content, setContent] = useState("");
   const [tags, setTags] = useState([]);
-  const [media, setMedia] = useState([]);
   const [coverImage, setCoverImage] = useState(null);
-  const [autoSaveMsg, setAutoSaveMsg] = useState("");
-  const [wordCount, setWordCount] = useState(0);
 
-  // Auto-save simulation
-  useEffect(() => {
-    if (title || content || description) {
-      const timeout = setTimeout(() => {
-        setAutoSaveMsg("💾 Draft saved automatically");
-        setTimeout(() => setAutoSaveMsg(""), 2000);
-      }, 2000);
-      return () => clearTimeout(timeout);
-    }
-  }, [title, description, content]);
-
-  // Word count
-  useEffect(() => {
-    const words = content.trim().split(/\s+/).filter(Boolean);
-    setWordCount(words.length);
-  }, [content]);
-
-  const handleMediaUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const previews = files.map((file) => URL.createObjectURL(file));
-    setMedia([...media, ...previews]);
-  };
+  
 
   const handlePublish = async () => {
     if (!title || !description) {
@@ -52,7 +27,7 @@ export default function Post() {
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      formData.append("content", content);
+      // no long content field
       
       // Add tags as comma-separated string
       if (tags.length > 0) {
@@ -83,10 +58,8 @@ export default function Post() {
         // Clear form
         setTitle("");
         setDescription("");
-        setContent("");
         setTags([]);
         setCoverImage(null);
-        setMedia([]);
       } else {
         alert(data.message || "❌ Failed to publish post");
       }
@@ -143,15 +116,6 @@ export default function Post() {
             className="textarea-field"
           />
 
-          {/* Content */}
-          <textarea
-            rows="8"
-            placeholder="Write your blog content here..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="textarea-field"
-          />
-
           {/* Tags */}
           <input
             type="text"
@@ -161,32 +125,8 @@ export default function Post() {
             className="input-field"
           />
 
-          {/* Media Upload */}
-          <div className="form-group">
-            <label className="form-label flex-label">
-              <ImageIcon size={16} /> Upload Images/Videos
-            </label>
-            <input type="file" multiple onChange={handleMediaUpload} />
-            <div className="media-preview">
-              {media.map((file, idx) => (
-                <motion.img
-                  key={idx}
-                  src={file}
-                  alt="media"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="media-thumb"
-                />
-              ))}
-            </div>
-          </div>
-
           {/* Buttons */}
           <div className="button-bar">
-            <motion.button whileTap={{ scale: 0.95 }} className="btn btn-draft">
-              <Save size={18} /> Save Draft
-            </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={handlePublish}
@@ -196,13 +136,7 @@ export default function Post() {
             </motion.button>
           </div>
 
-          {/* Auto-save msg */}
-          {autoSaveMsg && <p className="autosave-msg">{autoSaveMsg}</p>}
-
-          {/* Word count */}
-          <p className="wordcount">
-            📝 {wordCount} words • {Math.ceil(wordCount / 200)} min read
-          </p>
+          
         </div>
 
         {/* ---------- RIGHT: Preview ---------- */}
@@ -217,16 +151,7 @@ export default function Post() {
           <p className="preview-description">
             {description || "Short description will appear here..."}
           </p>
-          <div className="preview-content">
-            {content || "Start writing your content..."}
-          </div>
-          {media.length > 0 && (
-            <div className="preview-media-grid">
-              {media.map((file, idx) => (
-                <img key={idx} src={file} alt="preview" className="media-thumb" />
-              ))}
-            </div>
-          )}
+          
           {tags.length > 0 && (
             <div className="tags-container">
               {tags.map((tag, idx) => (

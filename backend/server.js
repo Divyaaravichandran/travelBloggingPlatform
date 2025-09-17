@@ -2,11 +2,17 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
+const http = require("http");
+const { Server } = require("socket.io");
+const { setIO } = require("./socket");
 
 const authRoutes = require("./routes/auth");
 const postsRoutes = require("./routes/posts");
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+setIO(io);
 
 // Middleware
 app.use(cors());
@@ -25,4 +31,5 @@ mongoose.connect("mongodb://127.0.0.1:27017/travelblog", {
 .then(() => console.log("✅ MongoDB Connected"))
 .catch(err => console.error("❌ DB Connection Error:", err));
 
-app.listen(5000, () => console.log("🚀 Server running on http://localhost:5000"));
+io.on("connection", () => {});
+server.listen(5000, () => console.log("🚀 Server running on http://localhost:5000"));
