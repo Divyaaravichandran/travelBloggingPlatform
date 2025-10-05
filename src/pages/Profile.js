@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import UserTravelMap from "../components/UserTravelMap";
 import "./profile.css";
 
 function Profile() {
@@ -11,7 +12,8 @@ function Profile() {
     username: '',
     email: '',
     phone: '',
-    country: ''
+    country: '',
+    bio: ''
   });
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -21,32 +23,48 @@ function Profile() {
   }, [isEditModalOpen]);
 
   // Fetch logged-in user info
+  const fetchUser = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/me", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        console.log("User data received:", data);
+        console.log("Bio field:", data.bio);
+        console.log("Bio type:", typeof data.bio);
+        console.log("Bio length:", data.bio ? data.bio.length : 0);
+        setUser(data);
+      } else {
+        console.error("Error:", data.message);
+      }
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
+    fetchUser();
+  }, []);
 
-      try {
-        const response = await fetch("http://localhost:5000/api/auth/me", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
-        if (response.ok) {
-          console.log("User data received:", data);
-          setUser(data);
-        } else {
-          console.error("Error:", data.message);
-        }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
+  // Refresh user data when page becomes visible (after returning from EditProfile)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Page became visible, refreshing user data...");
+        fetchUser();
       }
     };
 
-    fetchUser();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
   const handleBannerChange = (e) => {
@@ -115,7 +133,8 @@ function Profile() {
         username: user.username || '',
         email: user.email || '',
         phone: user.phone || '',
-        country: user.country || ''
+        country: user.country || '',
+        bio: user.bio || ''
       });
     }
     setIsEditModalOpen(true);
@@ -127,7 +146,8 @@ function Profile() {
       username: '',
       email: '',
       phone: '',
-      country: ''
+      country: '',
+      bio: ''
     });
   };
 
@@ -162,7 +182,17 @@ function Profile() {
       const data = await response.json();
       if (response.ok) {
         alert("Profile updated successfully!");
-        setUser(data.user);
+        // Refresh user data to get updated bio
+        const userResponse = await fetch("http://localhost:5000/api/auth/me", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const userData = await userResponse.json();
+        if (userResponse.ok) {
+          setUser(userData);
+        }
         closeEditModal();
       } else {
         alert(data.message || "Failed to update profile");
@@ -202,6 +232,10 @@ function Profile() {
 
   const [blogs, setBlogs] = useState([]);
   const [loadingBlogs, setLoadingBlogs] = useState(true);
+  const [favorites, setFavorites] = useState([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(true);
+  const [activeComments, setActiveComments] = useState({});
+  const [comments, setComments] = useState({});
 
   // Fetch user's posts
   useEffect(() => {
@@ -291,6 +325,78 @@ function Profile() {
     fetchUserPosts();
   }, [user]);
 
+  // Fetch user's favorites
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      try {
+        const response = await fetch("http://localhost:5000/api/auth/favorites", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (response.ok) {
+          setFavorites(data.favorites);
+        }
+      } catch (err) {
+        console.error("Error fetching favorites:", err);
+      } finally {
+        setLoadingFavorites(false);
+      }
+    };
+
+    fetchFavorites();
+  }, [user]);
+
+  // Fetch comments for a specific post
+  const fetchComments = async (postId) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/posts/${postId}`);
+      if (!response.ok) {
+        console.error("Failed to fetch post:", response.status, response.statusText);
+        return;
+      }
+      
+      const data = await response.json();
+      if (data.comments) {
+        setComments(prev => ({
+          ...prev,
+          [postId]: data.comments.map(comment => ({
+            text: comment.text,
+            username: comment.username || "User",
+            createdAt: comment.createdAt
+          }))
+        }));
+      } else {
+        // No comments yet
+        setComments(prev => ({
+          ...prev,
+          [postId]: []
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+      // Set empty comments on error
+      setComments(prev => ({
+        ...prev,
+        [postId]: []
+      }));
+    }
+  };
+
+  // Toggle comments display
+  const toggleComments = (postId) => {
+    setActiveComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
+    
+    if (!comments[postId]) {
+      fetchComments(postId);
+    }
+  };
+
   return (
     <div className="profile-page">
       {/* Cover Banner */}
@@ -331,7 +437,7 @@ function Profile() {
 
         <div className="profile-info">
           <h2 className="username">{user?.username || "Username"}</h2>
-          <p className="bio">🌍 Traveler | 📸 Photographer | ✈️ Adventure Seeker</p>
+          <p className="bio">{user?.bio || "🌍 Traveler | 📸 Photographer | ✈️ Adventure Seeker"}</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
             <button className="edit-btn" type="button" onClick={() => (window.location.href = "/profile/edit")}>Edit Profile</button>
             {localStorage.getItem('token') ? (
@@ -356,6 +462,14 @@ function Profile() {
         <div className="stat-box">
           <h3>{user?.following ? user.following.length : 0}</h3>
           <p>Following</p>
+        </div>
+      </div>
+
+      {/* Travel Map */}
+      <div className="blogs-section">
+        <h2 className="blogs-title">My Travel Map</h2>
+        <div style={{ borderRadius: 12, overflow: 'hidden' }}>
+          {user && <UserTravelMap userId={user._id} height={380} />}
         </div>
       </div>
 
@@ -395,7 +509,74 @@ function Profile() {
                     <p className="blog-desc">{blog.description}</p>
                     <div className="blog-meta">
                       <span>❤️ {blog.likes}</span>
-                      <span>💬 {blog.comments}</span>
+                      <button 
+                        className="comment-btn"
+                        onClick={() => toggleComments(blog.id)}
+                      >
+                        💬 {blog.comments}
+                      </button>
+                    </div>
+                    
+                    {/* Comments Section */}
+                    {activeComments[blog.id] && (
+                      <div className="comments-section">
+                        <h4>Comments</h4>
+                        {comments[blog.id] && comments[blog.id].length > 0 ? (
+                          <div className="comments-list">
+                            {comments[blog.id].map((comment, idx) => (
+                              <div key={idx} className="comment-item">
+                                <div className="comment-header">
+                                  <strong>{comment.username}</strong>
+                                  <span className="comment-date">
+                                    {new Date(comment.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="comment-text">{comment.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="no-comments">No comments yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Favorites Section */}
+      <div className="blogs-section">
+        <h2 className="blogs-title">My Favorites</h2>
+        {loadingFavorites ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🔄</div>
+            <p style={{ color: '#0097a7' }}>Loading your favorites...</p>
+          </div>
+        ) : (
+          <div className="blogs-grid">
+            {favorites.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                <p>No favorites yet. Start exploring and add some posts to your favorites!</p>
+              </div>
+            ) : (
+              favorites.map((favorite) => (
+                <div key={favorite.id} className="blog-card">
+                  <img 
+                    src={favorite.image || "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800"} 
+                    alt={favorite.title} 
+                    className="blog-thumb" 
+                  />
+                  <div className="blog-content">
+                    <h3 className="blog-title">{favorite.title}</h3>
+                    <p className="blog-desc">{favorite.description}</p>
+                    <div className="blog-meta">
+                      <span>❤️ {favorite.likes}</span>
+                      <span>💬 {favorite.comments}</span>
+                      <span className="favorite-author">by {favorite.author}</span>
                     </div>
                   </div>
                 </div>
@@ -456,6 +637,17 @@ function Profile() {
                   value={editForm.country}
                   onChange={handleEditFormChange}
                   required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="bio">Bio</label>
+                <textarea
+                  id="bio"
+                  name="bio"
+                  value={editForm.bio}
+                  onChange={handleEditFormChange}
+                  rows="3"
+                  placeholder="Tell us about yourself..."
                 />
               </div>
               <div className="form-actions">

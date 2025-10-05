@@ -4,7 +4,7 @@ function EditProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
-  const [form, setForm] = useState({ username: "", email: "", phone: "", country: "" });
+  const [form, setForm] = useState({ username: "", email: "", phone: "", country: "", bio: "" });
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -20,6 +20,7 @@ function EditProfile() {
             email: data.email || "",
             phone: data.phone || "",
             country: data.country || "",
+            bio: data.bio || "",
           });
         }
       } catch (_) {}
@@ -53,6 +54,7 @@ function EditProfile() {
         return { message: text };
       };
       // 1) Update basic info (POST for compatibility)
+      console.log("Sending form data:", form);
       const infoRes = await fetch("http://localhost:5000/api/auth/update-profile-info", {
         method: "POST",
         headers: {
@@ -125,6 +127,18 @@ function EditProfile() {
                   <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Country</label>
                   <input name="country" value={form.country} onChange={handleChange} required style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #dbeafe" }} />
                 </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>Bio</label>
+                <textarea 
+                  name="bio" 
+                  value={form.bio} 
+                  onChange={handleChange} 
+                  rows="3"
+                  placeholder="Tell us about yourself..."
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid #dbeafe", resize: "vertical", minHeight: "80px" }}
+                />
               </div>
 
               <div>

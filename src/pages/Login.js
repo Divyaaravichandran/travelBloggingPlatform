@@ -36,6 +36,10 @@ function Login() {
 
       if (response.ok && data.token) {
         localStorage.setItem("token", data.token); // Save JWT token
+        if (formData.email === 'admin' && formData.password === 'admin123') {
+          navigate("/admin/analytics");
+          return;
+        }
         alert("Login successful! Welcome back!");
         navigate("/profile"); // Redirect after successful login
       } else {

@@ -8,6 +8,8 @@ const { setIO } = require("./socket");
 
 const authRoutes = require("./routes/auth");
 const postsRoutes = require("./routes/posts");
+const blogsRoutes = require("./routes/blogs");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 const server = http.createServer(app);
@@ -22,6 +24,8 @@ app.use("/uploads", express.static("uploads")); // serve profile pictures and po
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postsRoutes);
+app.use("/api/blogs", blogsRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Connect to MongoDB
 mongoose.connect("mongodb://127.0.0.1:27017/travelblog", {

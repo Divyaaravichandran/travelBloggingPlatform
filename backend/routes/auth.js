@@ -64,6 +64,12 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Special admin login (username: admin, password: admin123)
+    if (email === 'admin' && password === 'admin123') {
+      const token = jwt.sign({ id: 'admin', role: 'admin' }, "secretKey", { expiresIn: "2h" });
+      return res.json({ token, message: "Login successful", user: { username: 'admin', profilePicture: null }, isAdmin: true });
+    }
+
     // find user
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid email or password" });
@@ -75,7 +81,7 @@ router.post("/login", async (req, res) => {
     // generate JWT
     const token = jwt.sign({ id: user._id }, "secretKey", { expiresIn: "1h" });
 
-    res.json({ token, message: "Login successful", user: { username: user.username, profilePicture: user.profilePicture } });
+    res.json({ token, message: "Login successful", user: { username: user.username, profilePicture: user.profilePicture }, isAdmin: false });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -192,7 +198,8 @@ router.put("/update-profile", authMiddleware, async (req, res) => {
 // Fallback endpoint using POST (some environments block PUT)
 router.post("/update-profile-info", authMiddleware, async (req, res) => {
   try {
-    const { username, email, phone, country } = req.body;
+    const { username, email, phone, country, bio } = req.body;
+    console.log("Received bio update:", bio);
 
     if (email) {
       const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
@@ -206,6 +213,7 @@ router.post("/update-profile-info", authMiddleware, async (req, res) => {
     if (email) updateData.email = email;
     if (phone) updateData.phone = phone;
     if (country) updateData.country = country;
+    if (bio !== undefined) updateData.bio = bio;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -217,6 +225,7 @@ router.post("/update-profile-info", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log("Updated user bio:", user.bio);
     return res.json({ message: "Profile updated successfully", user });
   } catch (err) {
     console.error("Error updating profile (POST):", err);
@@ -227,7 +236,7 @@ router.post("/update-profile-info", authMiddleware, async (req, res) => {
 // Also accept POST on the same path for maximum compatibility
 router.post("/update-profile", authMiddleware, async (req, res) => {
   try {
-    const { username, email, phone, country } = req.body;
+    const { username, email, phone, country, bio } = req.body;
 
     if (email) {
       const existingUser = await User.findOne({ email, _id: { $ne: req.user.id } });
@@ -241,6 +250,7 @@ router.post("/update-profile", authMiddleware, async (req, res) => {
     if (email) updateData.email = email;
     if (phone) updateData.phone = phone;
     if (country) updateData.country = country;
+    if (bio !== undefined) updateData.bio = bio;
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
@@ -259,7 +269,65 @@ router.post("/update-profile", authMiddleware, async (req, res) => {
   }
 });
 
-module.exports = router;
+// Toggle favorite post
+router.post("/favorite/:postId", authMiddleware, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ message: "Invalid post ID" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const isFavorited = user.favorites?.some(fav => String(fav) === postId);
+    
+    if (isFavorited) {
+      user.favorites = user.favorites.filter(fav => String(fav) !== postId);
+    } else {
+      user.favorites = [...(user.favorites || []), postId];
+    }
+
+    await user.save();
+
+    return res.json({
+      message: isFavorited ? "Removed from favorites" : "Added to favorites",
+      favorited: !isFavorited,
+      favoritesCount: user.favorites.length
+    });
+  } catch (err) {
+    console.error("Error toggling favorite:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get user's favorites
+router.get("/favorites", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate('favorites');
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const favorites = user.favorites.map(post => ({
+      id: post._id,
+      title: post.title,
+      description: post.description,
+      image: post.image ? `http://localhost:5000/uploads/posts/${post.image}` : null,
+      author: post.username,
+      likes: post.likes || 0,
+      comments: post.comments ? post.comments.length : 0,
+      createdAt: post.createdAt
+    }));
+
+    return res.json({ favorites });
+  } catch (err) {
+    console.error("Error fetching favorites:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Follow / Unfollow a user
 // POST /api/auth/follow/:userId
@@ -304,3 +372,5 @@ router.post("/follow/:userId", authMiddleware, async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
+module.exports = router;

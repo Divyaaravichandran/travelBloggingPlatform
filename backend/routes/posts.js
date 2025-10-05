@@ -19,7 +19,10 @@ const upload = multer({ storage });
 // Authenticated users only
 router.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   try {
-    const { title, description, content, tags } = req.body;
+    const { title, description, content, tags, city, country, placeName } = req.body;
+    // coordinates may come as strings: lat, lng or location[lat], location[lng]
+    let lat = req.body.lat ?? req.body.latitude ?? (req.body.location && req.body.location.lat);
+    let lng = req.body.lng ?? req.body.longitude ?? (req.body.location && req.body.location.lng);
     
     // Validate required fields
     if (!title || !description) {
@@ -42,6 +45,22 @@ router.post("/", authMiddleware, upload.single("image"), async (req, res) => {
       }
     }
 
+    // Build location object if coordinates provided
+    let location;
+    if (lat !== undefined && lng !== undefined) {
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+        location = {
+          type: 'Point',
+          coordinates: [parsedLng, parsedLat], // GeoJSON expects [lng, lat]
+          city: city || undefined,
+          country: country || undefined,
+          placeName: placeName || undefined,
+        };
+      }
+    }
+
     // Create new post
     const newPost = new Post({
       userId: req.user.id,
@@ -52,6 +71,7 @@ router.post("/", authMiddleware, upload.single("image"), async (req, res) => {
       content: content || "",
       tags: processedTags,
       image: req.file ? req.file.filename : null,
+      location,
       likes: 0,
       comments: [],
       createdAt: new Date()
@@ -85,6 +105,51 @@ router.post("/", authMiddleware, upload.single("image"), async (req, res) => {
   } catch (err) {
     console.error("Error creating post:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Fetch posts with location by user, ordered by createdAt ascending (for routes)
+// GET /api/posts/user/:userId/with-location
+router.get("/user/:userId/with-location", async (req, res) => {
+  try {
+    const posts = await Post.find({ userId: req.params.userId, "location.coordinates": { $exists: true } })
+      .sort({ createdAt: 1 })
+      .select('userId title description tags image username profilePicture createdAt location');
+    return res.json(posts);
+  } catch (err) {
+    console.error("Error fetching user posts with location:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Platform map: fetch all posts with location, with optional filters
+// GET /api/posts/with-location?continent=&category=&blogger=
+router.get("/with-location", async (req, res) => {
+  try {
+    const { blogger } = req.query;
+    const query = { "location.coordinates": { $exists: true } };
+    if (blogger) {
+      // If a valid ObjectId was provided, filter by userId; else treat as username search
+      let isObjectId = false;
+      try {
+        const mongoose = require('mongoose');
+        isObjectId = mongoose.Types.ObjectId.isValid(blogger);
+      } catch (_) {}
+      if (isObjectId) {
+        query.userId = blogger;
+      } else {
+        const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        query.username = { $regex: new RegExp(escapeRegExp(String(blogger)), 'i') };
+      }
+    }
+    // category/continent filters can be applied if your schema supports it; left as TODO
+    const posts = await Post.find(query)
+      .sort({ createdAt: -1 })
+      .select('userId title description tags image username profilePicture createdAt location');
+    return res.json(posts);
+  } catch (err) {
+    console.error("Error fetching all posts with location:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -182,6 +247,27 @@ router.get("/user/:userId", async (req, res) => {
 
   } catch (err) {
     console.error("Error fetching user posts:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get Single Post by ID
+// Route: GET /api/posts/:postId
+router.get("/:postId", async (req, res) => {
+  try {
+    const post = await Post.findById(req.params.postId)
+      .select('userId title description content tags image username profilePicture likes likedBy comments createdAt');
+
+    if (!post) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    console.log(`Retrieved post ${req.params.postId}`);
+
+    res.json(post);
+
+  } catch (err) {
+    console.error("Error fetching post:", err);
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -8,6 +8,12 @@ export default function Post() {
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState([]);
   const [coverImage, setCoverImage] = useState(null);
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+  const [category, setCategory] = useState("");
+  const [place, setPlace] = useState("");
 
   
 
@@ -24,30 +30,24 @@ export default function Post() {
     }
 
     try {
+      // Prefer new blogs endpoint with geocoding, with image upload via multipart
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
-      // no long content field
-      
-      // Add tags as comma-separated string
-      if (tags.length > 0) {
-        formData.append("tags", tags.join(", "));
-      }
-      
-      // Add cover image if selected
+      if (Array.isArray(tags) && tags.length) formData.append("tags", tags.join(", "));
+      if (category) formData.append("category", category);
+      if (country) formData.append("country", country);
+      if (place || city) formData.append("place", place || city);
       if (coverImage && coverImage.startsWith('blob:')) {
-        // Convert blob URL to file
-        const response = await fetch(coverImage);
-        const blob = await response.blob();
-        const file = new File([blob], "cover-image.jpg", { type: blob.type });
+        const responseBlob = await fetch(coverImage);
+        const blob = await responseBlob.blob();
+        const file = new File([blob], "cover-image.jpg", { type: blob.type || 'image/jpeg' });
         formData.append("image", file);
       }
 
-      const response = await fetch("http://localhost:5000/api/posts", {
+      const response = await fetch("http://localhost:5000/api/blogs", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
@@ -60,6 +60,12 @@ export default function Post() {
         setDescription("");
         setTags([]);
         setCoverImage(null);
+        setCity("");
+        setCountry("");
+        setLat("");
+        setLng("");
+        setCategory("");
+        setPlace("");
       } else {
         alert(data.message || "❌ Failed to publish post");
       }
@@ -122,6 +128,36 @@ export default function Post() {
             placeholder="Enter tags (comma separated)..."
             value={tags.join(", ")}
             onChange={(e) => setTags(e.target.value.split(","))}
+            className="input-field"
+          />
+
+          {/* Location */}
+          <div className="form-group">
+            <label className="form-label">Location (optional)</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <input
+                type="text"
+                placeholder="Place / City"
+                value={place}
+                onChange={(e) => setPlace(e.target.value)}
+                className="input-field"
+              />
+              <input
+                type="text"
+                placeholder="Country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="input-field"
+              />
+            </div>
+          </div>
+
+          {/* Category */}
+          <input
+            type="text"
+            placeholder="Category (adventure, food, culture, etc.)"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
             className="input-field"
           />
 

@@ -1,5 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+// Configure Leaflet default marker icons
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 /* ------------------------------
   Fallback data (offline safe)
@@ -68,6 +79,55 @@ function Explore() {
   const [favorites, setFavorites] = useState([]);
   const [shareMsgIdx, setShareMsgIdx] = useState(null);
   const [followedAuthors, setFollowedAuthors] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [favoritedPosts, setFavoritedPosts] = useState([]);
+  const [mapPosts, setMapPosts] = useState([]);
+  const [bloggerFilter, setBloggerFilter] = useState("");
+  const [bloggerQuery, setBloggerQuery] = useState("");
+  const displayMapPosts = React.useMemo(() => {
+    const q = (bloggerFilter || '').trim();
+    if (!q) return mapPosts;
+    const qLower = q.toLowerCase();
+    return mapPosts.filter(p => {
+      const uname = String(p.username || '').toLowerCase();
+      const uid = String(p.userId || '');
+      return uname.includes(qLower) || uid === q;
+    });
+  }, [mapPosts, bloggerFilter]);
+
+  /* Get current user ID and following list */
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const userId = decodeUserIdFromToken(token);
+    setCurrentUserId(userId);
+    
+    if (userId) {
+      // Fetch current user's following list
+      fetch("http://localhost:5000/api/auth/me", {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.following) {
+          // Get usernames of followed users
+          const followedUsernames = data.following.map(followedUserId => {
+            // Find the username from the blog posts
+            const post = blogPosts.find(p => p.authorId === followedUserId);
+            return post ? post.author : null;
+          }).filter(Boolean);
+          setFollowedAuthors(followedUsernames);
+        }
+        
+        if (data.favorites && Array.isArray(data.favorites)) {
+          // Get favorited post IDs
+          const favoritedIds = data.favorites.map(fav => String(fav));
+          setFavoritedPosts(favoritedIds);
+          console.log("Loaded favorites:", favoritedIds);
+        }
+      })
+      .catch(err => console.error("Error fetching user data:", err));
+    }
+  }, [blogPosts.length]); // Re-run when blog posts are loaded
 
   /* Fetch posts */
   useEffect(() => {
@@ -150,11 +210,36 @@ function Explore() {
         )
       );
     });
+    
+    // Listen for follow updates
+    socket.on("user:follow", ({ userId, followersCount }) => {
+      console.log("Follow update received:", { userId, followersCount });
+    });
+    
+    socket.on("user:following", ({ userId, followingCount }) => {
+      console.log("Following update received:", { userId, followingCount });
+    });
     return () => {
       clearInterval(interval);
       try { socket.disconnect(); } catch (_) {}
     };
   }, []);
+
+  // Platform map data (all posts with location, optional blogger filter)
+  useEffect(() => {
+    const fetchMapPosts = async () => {
+      try {
+        const q = new URLSearchParams();
+        if (bloggerFilter) q.set("blogger", bloggerFilter);
+        const res = await fetch(`http://localhost:5000/api/posts/with-location?${q.toString()}`);
+        const data = await res.json();
+        if (res.ok) setMapPosts(data);
+      } catch (e) {
+        console.error("Failed to fetch platform map posts", e);
+      }
+    };
+    fetchMapPosts();
+  }, [bloggerFilter]);
 
   /* Lock background scroll when modal is open */
   useEffect(() => {
@@ -254,38 +339,126 @@ function Explore() {
     setModalBlog(null);
   };
 
-  const handleFavorite = (idx) => {
+  const handleLocalFavorite = (idx) => {
     setFavorites((prev) =>
       prev.includes(idx) ? prev.filter((i) => i !== idx) : [...prev, idx]
     );
   };
 
-  const handleShare = (idx) => {
-    const url =
-      window.location.origin + "/blog/" + (blogPosts[idx]?.id || idx);
-    navigator.clipboard?.writeText(url);
-    setShareMsgIdx(idx);
-    setTimeout(() => setShareMsgIdx(null), 1200);
+  const handleShare = async (idx) => {
+    const url = window.location.origin + "/blog/" + (blogPosts[idx]?.id || idx);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMsgIdx(idx);
+      setTimeout(() => setShareMsgIdx(null), 1200);
+    } catch (err) {
+      console.error("Failed to copy link:", err);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setShareMsgIdx(idx);
+      setTimeout(() => setShareMsgIdx(null), 1200);
+    }
+  };
+
+  const handleFavorite = async (idx, postId) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please login to add favorites");
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      console.log("Toggling favorite for post:", postId);
+      const res = await fetch(`http://localhost:5000/api/auth/favorite/${postId}`, {
+        method: "POST",
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+      });
+      
+      if (res.status === 401) {
+        alert("Please login again to manage favorites.");
+        window.location.href = "/login";
+        return;
+      }
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(errorData.message || `HTTP ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log("Favorite response:", data);
+      
+      // Update the favorites state
+      setFavoritedPosts(prev => {
+        if (data.favorited) {
+          return prev.includes(postId) ? prev : [...prev, postId];
+        } else {
+          return prev.filter(id => id !== postId);
+        }
+      });
+      
+      console.log("Favorite action successful:", data);
+    } catch (err) {
+      console.error("Favorite error:", err);
+      alert(err.message || "Error managing favorite");
+    }
   };
 
   const handleFollow = async (author, authorId) => {
     const token = localStorage.getItem("token");
     if (!token) {
       alert("Please login to follow users");
+      window.location.href = "/login";
       return;
     }
+    
+    if (!authorId) {
+      console.error("No authorId provided for follow action");
+      return;
+    }
+
     try {
       const res = await fetch(`http://localhost:5000/api/auth/follow/${authorId}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
       });
+      
+      if (res.status === 401) {
+        alert("Please login again to follow users.");
+        window.location.href = "/login";
+        return;
+      }
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to follow");
-      setFollowedAuthors((prev) =>
-        prev.includes(author) ? prev.filter((a) => a !== author) : [...prev, author]
-      );
+      
+      // Update the followed authors state based on the API response
+      setFollowedAuthors((prev) => {
+        if (data.following) {
+          // User is now following this author
+          return prev.includes(author) ? prev : [...prev, author];
+        } else {
+          // User is no longer following this author
+          return prev.filter((a) => a !== author);
+        }
+      });
+      
+      console.log("Follow action successful:", data);
     } catch (err) {
       console.error("Follow error:", err);
+      alert(err.message || "Error following user");
     }
   };
 
@@ -299,6 +472,66 @@ function Explore() {
         <p style={layoutStyles.subtitle}>
           Discover travel stories, destinations & guides
         </p>
+      </div>
+
+      {/* Platform Map */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, position: 'relative', zIndex: 1000 }}>
+          <input
+            placeholder="Filter by username (or userId)"
+            value={bloggerQuery}
+            onChange={(e) => setBloggerQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                setBloggerFilter((bloggerQuery || '').trim());
+              }
+            }}
+            style={{ padding: 8, border: '1px solid #ddd', borderRadius: 8, flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={() => setBloggerFilter((bloggerQuery || '').trim())}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #0a98a7', color: '#0a98a7', background: '#eef9fb', cursor: 'pointer' }}
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={() => { setBloggerQuery(""); setBloggerFilter(""); }}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
+          >
+            Clear
+          </button>
+        </div>
+        <div style={{ fontSize: 13, color: '#556', marginBottom: 6 }}>
+          {bloggerFilter ? `Filter: ${bloggerFilter}` : 'Showing all bloggers'} · {displayMapPosts.length} locations
+          {bloggerFilter && displayMapPosts.length === 0 && (
+            <span style={{ color: '#a33', marginLeft: 8 }}>(no results)</span>
+          )}
+        </div>
+        <div style={{ height: 420, borderRadius: 12, overflow: 'hidden' }}>
+          <MapContainer center={[20, 0]} zoom={2} style={{ height: "100%", width: "100%" }} scrollWheelZoom>
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {displayMapPosts.filter(p => p.location && Array.isArray(p.location.coordinates)).map(p => (
+              <Marker key={p._id} position={[p.location.coordinates[1], p.location.coordinates[0]]}>
+                <Popup>
+                  <div style={{ maxWidth: 220 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>{p.title}</div>
+                    {p.image && (
+                      <img src={`http://localhost:5000/uploads/posts/${p.image}`} alt={p.title} style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 8, marginBottom: 8 }} />
+                    )}
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>by {p.username}</div>
+                    <a href={`/blog/${p._id}`} style={{ color: '#0a98a7', fontWeight: 600 }}>Open post →</a>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+        </div>
       </div>
 
       {/* Blog Grid */}
@@ -381,12 +614,12 @@ function Explore() {
                         type="button"
                         style={{
                           ...cardStyles.iconBtn,
-                          background: isFavorite ? "#fff7ed" : "#eef9fb",
-                          color: isFavorite ? "#ff8a00" : "#556",
+                          background: favoritedPosts.includes(post.id) ? "#fff7ed" : "#eef9fb",
+                          color: favoritedPosts.includes(post.id) ? "#ff8a00" : "#556",
                         }}
-                        onClick={() => handleFavorite(idx)}
+                        onClick={() => handleFavorite(idx, post.id)}
                       >
-                        {isFavorite ? "★" : "☆"}
+                        {favoritedPosts.includes(post.id) ? "★" : "☆"}
                       </button>
 
                       <button
@@ -470,6 +703,7 @@ function Explore() {
               </div>
               <div style={{ marginLeft: "auto" }}>
                 <button
+                  type="button"
                   style={{
                     ...modalStyles.followBtn,
                     background: followedAuthors.includes(modalBlog.author)
@@ -479,7 +713,7 @@ function Explore() {
                       ? "#fff"
                       : "#0a98a7",
                   }}
-                  onClick={() => handleFollow(modalBlog.author)}
+                  onClick={() => handleFollow(modalBlog.author, modalBlog.authorId)}
                 >
                   {followedAuthors.includes(modalBlog.author)
                     ? "Following"
@@ -640,13 +874,17 @@ const cardStyles = {
   },
   followBtnSmall: {
     background: "#eef9fb",
-    border: "none",
+    border: "1px solid #0a98a7",
     padding: "6px 12px",
     borderRadius: 999,
     cursor: "pointer",
     fontSize: 13,
     color: "#0a98a7",
     fontWeight: 600,
+    transition: "all 0.2s ease",
+    position: "relative",
+    zIndex: 10,
+    pointerEvents: "auto",
   },
   copied: {
     background: "#e8f7f8",
@@ -733,10 +971,14 @@ const modalStyles = {
   },
   followBtn: {
     padding: "6px 12px",
-    border: "none",
+    border: "1px solid #0a98a7",
     borderRadius: 8,
     fontWeight: 600,
     cursor: "pointer",
+    transition: "all 0.2s ease",
+    position: "relative",
+    zIndex: 10,
+    pointerEvents: "auto",
   },
 };
 

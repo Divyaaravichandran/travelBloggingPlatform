@@ -8,6 +8,8 @@ import Profile from "./pages/Profile";
 import EditProfile from "./pages/EditProfile";
 import BlogDetail from "./pages/BlogDetail";
 import Post from "./pages/Post";
+import AdminUsers from "./pages/AdminUsers";
+import AdminAnalytics from "./pages/AdminAnalytics";
 
 
 function App() {
@@ -22,6 +24,8 @@ function App() {
         <Route path="/profile/edit" element={<EditProfile />} />
         <Route path="/blog/:id" element={<BlogDetail />} />
         <Route path="/post" element={<Post />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
+        <Route path="/admin/analytics" element={<AdminAnalytics />} />
       </Routes>
     </Layout>
   );

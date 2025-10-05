@@ -16,6 +16,34 @@ const postSchema = new mongoose.Schema({
   content: { type: String, default: "" },
   tags: [{ type: String }],
   image: { type: String },
+  images: [{ type: String }],
+  category: { type: String },
+  // Geo/location info for mapping posts
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      // [lng, lat]
+      type: [Number],
+      index: '2dsphere',
+      default: undefined
+    },
+    city: { type: String },
+    country: { type: String },
+    place: { type: String },
+    placeName: { type: String },
+    // Denormalized lat/lng for easy client consumption
+    coordinatesLat: { type: Number },
+    coordinatesLng: { type: Number },
+    // Or nested coordinates as requested
+    geo: {
+      lat: { type: Number },
+      lng: { type: Number }
+    }
+  },
   likedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   likes: { type: Number, default: 0 },
   comments: [commentSchema],
