@@ -27,12 +27,14 @@ app.use("/api/posts", postsRoutes);
 app.use("/api/blogs", blogsRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Connect to MongoDB
-mongoose.connect("mongodb://127.0.0.1:27017/travelblog", {
+// Connect to MongoDB Atlas
+require("dotenv").config(); // load .env file
+
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log("✅ MongoDB Connected"))
+.then(() => console.log("✅ Connected to MongoDB Atlas"))
 .catch(err => console.error("❌ DB Connection Error:", err));
 
 io.on("connection", () => {});
